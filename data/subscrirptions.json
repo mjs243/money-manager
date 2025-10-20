@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Proton VPN",
+    "merchant": "Paypal *proton",
+    "amount": 59.88,
+    "category": "Software & Tech",
+    "interval_days": 365,
+    "start_date": "2024-10-10T00:00:00",
+    "end_date": null,
+    "notes": "annual subscription",
+    "is_active": true
+  },
+  {
+    "name": "NY Times",
+    "merchant": "NYTIMES DISC",
+    "amount": 53.00,
+    "category": "Entertainment & Rec.",
+    "interval_days": 30,
+    "start_date": "2024-09-29T00:00:00",
+    "end_date": null,
+    "notes": "digital subscription",
+    "is_active": true
+  },
+  {
+    "name": "Rocket Money Premium",
+    "merchant": "Rocket Money Premium",
+    "amount": 5.30,
+    "category": "Software & Tech",
+    "interval_days": 30,
+    "start_date": "2024-09-29T00:00:00",
+    "end_date": null,
+    "notes": "",
+    "is_active": true
+  }
+]

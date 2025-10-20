@@ -1,10 +1,58 @@
+# environment & dependencies
 venv/
+env/
+.venv
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# os
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ide
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# sensitive data
+.env
+.env.local
+.env.*.local
+config/.env
+config/.env.*
+
+# data files (keep structure)
 data/transactions.csv
+data/credit_card_charges.json
+data/subscriptions.json
+data/recurring_purchases.json
+data/wants.json
+data/inventory.json
 data/output/*
 !data/output/.gitkeep
-logs/
-.env
-.idea/
+logs/*
+!logs/.gitkeep
+
+# temporary
+*.log
+*.tmp
+tmp/
+temp/
+
+# IDE
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.env.example

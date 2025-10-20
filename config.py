@@ -1,4 +1,8 @@
+# config.py
+# central config for budget analyzer
+
 # categories to exclude from spending analysis
+# (these are accounting movements, not actual spending)
 exclude_categories = [
     "Internal Transfers",
     "Credit Card Payment",
@@ -8,7 +12,7 @@ exclude_categories = [
     "Income",
 ]
 
-# paypal and apple cash movements to ignore
+# paypal movements to ignore
 paypal_keywords = [
     "PAYPAL INSTANT TRANSFER",
     "PAYPAL *",
@@ -21,7 +25,7 @@ budget_targets = {
     "Groceries": 300,
     "Auto & Transport": 200,
     "Entertainment & Rec.": 100,
-    "Shoopping": 150,
+    "Shopping": 150,
     "Software & Tech": 100,
     "Bills & Utilities": 250,
 }
@@ -31,12 +35,12 @@ savings_goals = {
     "down_payment": {
         "target": 50000,
         "current": 27000,
-        "monthly_contribution": 1500,
+        "monthly_contribution": 500,
     },
     "emergency_fund": {
         "target": 10000,
         "current": 0,
-        "monthly_contribution": 200
+        "monthly_contribution": 200,
     },
 }
 

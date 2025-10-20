@@ -1,3 +1,6 @@
+# models/transaction.py
+# transaction data model
+
 from datetime import datetime
 from dataclasses import dataclass
 
@@ -18,12 +21,12 @@ class Transaction:
     def is_income(self) -> bool:
         """check if transaction is income (negative amount in export)"""
         return self.amount < 0 and self.category == "Income"
-    
+
     @property
     def is_expense(self) -> bool:
-        """check if transaction is an actual expense"""
+        """check if this is actual spending"""
         return self.amount > 0
-    
+
     def __repr__(self) -> str:
         return (
             f"Transaction("
