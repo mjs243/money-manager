@@ -1,0 +1,26 @@
+[
+  {
+    "name": "🏡 House Down Payment",
+    "goal_amount": 60000.0,
+    "current_balance": 27000.0,
+    "monthly_contribution": 500.0,
+    "target_date": null,
+    "created_date": "2024-01-01T12:00:00"
+  },
+  {
+    "name": "🚗 Car Repair Fund",
+    "goal_amount": 2000.0,
+    "current_balance": 850.0,
+    "monthly_contribution": 100.0,
+    "target_date": null,
+    "created_date": "2024-01-01T12:00:00"
+  },
+  {
+    "name": "🌴 Vacation Fund",
+    "goal_amount": 3000.0,
+    "current_balance": 400.0,
+    "monthly_contribution": 150.0,
+    "target_date": null,
+    "created_date": "2024-01-01T12:00:00"
+  }
+]

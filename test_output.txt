@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "C:\Users\malik\Documents\Projects\money-manager\main.py", line 152, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\malik\Documents\Projects\money-manager\main.py", line 44, in main
+    print("\n\U0001f3e0 budget analyzer\n")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f3e0' in position 2: character maps to <undefined>

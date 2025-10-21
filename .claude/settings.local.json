@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python main.py:*)",
+      "Bash(set PYTHONIOENCODING=utf-8:*)",
+      "Bash(Out-File -Encoding UTF8 test_output.txt)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,5 +1,12 @@
-pandas==2.1.1
-matplotlib==3.8.0
-numpy==1.24.3
-pytest
-pytest-cov
+# core data analysis & manipulation
+pandas==2.2.2
+numpy==1.26.4
+matplotlib==3.8.4
+
+# data syncing
+python-dotenv==1.0.1
+requests==2.31.0
+
+# testing suite
+pytest==8.2.0
+pytest-cov==5.0.0

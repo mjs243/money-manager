@@ -175,8 +175,8 @@ class SubscriptionManager:
                 "interval_days": sub.interval_days,
                 "interval_type": sub.interval_type,
                 "source": "manual",
-                "monthly_cost": sub.monthly_cost,
-                "annual_cost": sub.annual_cost,
+                "monthly_cost": sub.monthly_cost(),
+                "annual_cost": sub.annual_cost(),
                 "start_date": sub.start_date,
                 "is_active": sub.is_active,
                 "notes": sub.notes,
@@ -191,7 +191,7 @@ class SubscriptionManager:
         """total monthly cost (manual + detected)"""
         # manual only
         manual_total = sum(
-            sub.monthly_cost for sub in self.get_active_manual()
+            sub.monthly_cost() for sub in self.get_active_manual()
         )
 
         # add detected if provided
@@ -235,12 +235,12 @@ class SubscriptionManager:
         # manual subscriptions
         if active_manual:
             output.append(f"\n--- manual subscriptions ({len(active_manual)}) ---")
-            for sub in sorted(active_manual, key=lambda x: x.monthly_cost, reverse=True):
+            for sub in sorted(active_manual, key=lambda x: x.monthly_cost(), reverse=True):
                 output.append(
                     f"  {sub.name:.<35} "
                     f"${sub.amount:>8,.2f} "
                     f"({sub.interval_type}) "
-                    f"→ ${sub.monthly_cost:>8,.2f}/mo"
+                    f"→ ${sub.monthly_cost():>8,.2f}/mo"
                 )
                 if sub.notes:
                     output.append(f"    note: {sub.notes}")

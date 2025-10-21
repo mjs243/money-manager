@@ -7,6 +7,7 @@ from datetime import datetime
 from models.credit_card_charge import CreditCardCharge, ChargeStatus
 from models.transaction import Transaction
 
+
 class CreditCardTracker:
     """track credit card charges and ensure timely payment"""
 
@@ -22,23 +23,25 @@ class CreditCardTracker:
             return
 
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, "r") as f:
                 data = json.load(f)
 
             self.charges = [
                 CreditCardCharge(
-                    date=datetime.fromisoformat(charge['date']),
-                    merchant=charge['merchant'],
-                    amount=charge['amount'],
-                    category=charge['category'],
-                    card_name=charge['card_name'],
-                    status=ChargeStatus(charge.get('status', ChargeStatus.DETECTED.value)),
+                    date=datetime.fromisoformat(charge["date"]),
+                    merchant=charge["merchant"],
+                    amount=charge["amount"],
+                    category=charge["category"],
+                    card_name=charge["card_name"],
+                    status=ChargeStatus(
+                        charge.get("status", ChargeStatus.DETECTED.value)
+                    ),
                     payment_date=(
-                        datetime.fromisoformat(charge['payment_date'])
-                        if charge.get('payment_date')
+                        datetime.fromisoformat(charge["payment_date"])
+                        if charge.get("payment_date")
                         else None
                     ),
-                    notes=charge.get('notes', ''),
+                    notes=charge.get("notes", ""),
                 )
                 for charge in data
             ]
@@ -58,9 +61,7 @@ class CreditCardTracker:
                 "card_name": charge.card_name,
                 "status": charge.status.value,
                 "payment_date": (
-                    charge.payment_date.isoformat()
-                    if charge.payment_date
-                    else None
+                    charge.payment_date.isoformat() if charge.payment_date else None
                 ),
                 "notes": charge.notes,
             }
@@ -68,10 +69,12 @@ class CreditCardTracker:
         ]
 
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.config_path, 'w') as f:
+        with open(self.config_path, "w") as f:
             json.dump(data, f, indent=2)
 
-    def add_charge_from_transaction(self, transaction: Transaction, card_name: str) -> CreditCardCharge:
+    def add_charge_from_transaction(
+        self, transaction: Transaction, card_name: str
+    ) -> CreditCardCharge:
         """create charge from transaction"""
         charge = CreditCardCharge(
             date=transaction.date,
@@ -88,7 +91,8 @@ class CreditCardTracker:
     def detect_unpaid_charges(self) -> list[CreditCardCharge]:
         """find charges that need payment"""
         unpaid = [
-            c for c in self.charges
+            c
+            for c in self.charges
             if c.status != ChargeStatus.PAID and c.is_due_for_payment
         ]
         return sorted(unpaid, key=lambda x: x.date)
@@ -100,16 +104,53 @@ class CreditCardTracker:
     def get_pending_charges(self) -> list[CreditCardCharge]:
         """get all pending/unpaid charges"""
         return [
-            c for c in self.charges
+            c
+            for c in self.charges
             if c.status in [ChargeStatus.DETECTED, ChargeStatus.PENDING_PAYMENT]
         ]
 
     def get_charges_due_soon(self, days: int = 15) -> list[CreditCardCharge]:
         """get charges due within N days"""
         return [
-            c for c in self.charges
+            c
+            for c in self.charges
             if c.status != ChargeStatus.PAID and c.days_since_charge <= days
         ]
+
+    def get_usage_health(self) -> dict:
+        """Provides a behavioral metric for credit card usage this month."""
+        month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0)
+
+        new_charges_this_month = [
+            c
+            for c in self.charges
+            if c.date >= month_start and c.status != ChargeStatus.IGNORED
+        ]
+
+        num_charges = len(new_charges_this_month)
+        total_spent = sum(c.amount for c in new_charges_this_month)
+
+        status = "🟢 Low Usage"
+        recommendation = "Great job keeping card usage low! Keep paying it off."
+        if num_charges > 20:
+            status = "🟡 Moderate Usage"
+            recommendation = "Card usage is increasing. Be mindful of each swipe."
+        if num_charges > 40:
+            status = "🔴 High Usage"
+            recommendation = (
+                "High transaction volume risks overspending. Consider using debit/cash."
+            )
+
+        # sort charges by date (most recent first)
+        sorted_charges = sorted(new_charges_this_month, key=lambda x: x.date, reverse=True)
+
+        return {
+            "New Charges This Month": num_charges,
+            "Total Spent on Card This Month": total_spent,
+            "Usage Status": status,
+            "Recommendation": recommendation,
+            "Charges List": sorted_charges,
+        }
 
     def total_unpaid(self) -> float:
         """total unpaid amount"""
@@ -118,9 +159,11 @@ class CreditCardTracker:
     def total_paid_this_month(self) -> float:
         """total paid this month"""
         from datetime import datetime, timedelta
+
         month_start = datetime.now().replace(day=1)
         paid_this_month = [
-            c for c in self.charges
+            c
+            for c in self.charges
             if c.status == ChargeStatus.PAID and c.payment_date >= month_start
         ]
         return sum(c.amount for c in paid_this_month)
@@ -158,8 +201,10 @@ class CreditCardTracker:
         """mark charges as paid"""
         matched = []
         for charge in self.charges:
-            if (charge.merchant.lower() == merchant.lower() and
-                charge.status != ChargeStatus.PAID):
+            if (
+                charge.merchant.lower() == merchant.lower()
+                and charge.status != ChargeStatus.PAID
+            ):
                 if amount is None or charge.amount == amount:
                     charge.mark_paid()
                     matched.append(charge)
@@ -173,8 +218,8 @@ class CreditCardTracker:
     def payment_reminder_report(self) -> str:
         """generate payment reminder report"""
         schedule = self.payment_schedule()
-        charges_15th = schedule.get('next_check_15th', {})
-        charges_eom = schedule.get('next_check_eom', {})
+        charges_15th = schedule.get("next_check_15th", {})
+        charges_eom = schedule.get("next_check_eom", {})
 
         output = []
         output.append("=" * 70)
@@ -185,10 +230,10 @@ class CreditCardTracker:
         output.append(f"total unpaid: ${schedule['grand_total']:,.2f}")
 
         # 15th check
-        if charges_15th.get('charges'):
+        if charges_15th.get("charges"):
             output.append(f"\n--- due by 15th ({charges_15th['count']} charges) ---")
             output.append(f"total: ${charges_15th['total']:,.2f}")
-            for charge in charges_15th['charges']:
+            for charge in charges_15th["charges"]:
                 output.append(
                     f"  {charge.date.date()} | "
                     f"{charge.merchant:.<25} | "
@@ -196,10 +241,12 @@ class CreditCardTracker:
                 )
 
         # end-of-month check
-        if charges_eom.get('charges'):
-            output.append(f"\n--- due by end of month ({charges_eom['count']} charges) ---")
+        if charges_eom.get("charges"):
+            output.append(
+                f"\n--- due by end of month ({charges_eom['count']} charges) ---"
+            )
             output.append(f"total: ${charges_eom['total']:,.2f}")
-            for charge in charges_eom['charges']:
+            for charge in charges_eom["charges"]:
                 output.append(
                     f"  {charge.date.date()} | "
                     f"{charge.merchant:.<25} | "

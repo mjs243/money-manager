@@ -44,6 +44,7 @@ class CSVParser:
             account_type = row.get('account type', '')
             account_name = row.get('account name', '')
             institution = row.get('institution name', '')
+            source = row.get('source', 'csv')  # default to 'csv' if not specified
 
             # skip if amount is 0
             if amount == 0:
@@ -57,8 +58,17 @@ class CSVParser:
             if any(kw in description.upper() for kw in config.paypal_keywords):
                 return None
 
-            # parse date
-            date = datetime.strptime(date_str, '%Y-%m-%d')
+            # parse date - try multiple formats
+            date = None
+            for fmt in ['%Y-%m-%d', '%d-%m-%y', '%m/%d/%Y', '%Y/%m/%d']:
+                try:
+                    date = datetime.strptime(date_str, fmt)
+                    break
+                except ValueError:
+                    continue
+
+            if not date:
+                return None
 
             return Transaction(
                 date=date,
@@ -69,8 +79,10 @@ class CSVParser:
                 amount=amount,
                 description=description,
                 category=category,
+                source=source,
             )
 
         except Exception as e:
-            # silently skip malformed rows
+            # silently skip malformed rows (uncomment below for debugging)
+            # print(f"Error parsing row: {e}")
             return None

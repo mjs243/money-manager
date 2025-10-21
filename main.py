@@ -1,206 +1,156 @@
 # main.py
-# run the budget analysis pipeline
+# the central orchestrator for the budget analysis pipeline.
 
 import sys
+import os
 from pathlib import Path
 
-# add project root to path
+# fix encoding for Windows console
+if os.name == 'nt':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+# add project root to python's path to allow for clean module imports
 sys.path.insert(0, str(Path(__file__).parent))
 
+# --- data ingestion & models ---
+from analyzers.ynab_syncer import YNABSyncer
 from parsers.csv_parser import CSVParser
+from models.debt import DebtAccount
+from models.transaction import Transaction
+
+# --- core analyzers ---
 from analyzers.spending import SpendingAnalyzer
 from analyzers.subscriptions import SubscriptionDetector
-from analyzers.subscription_manager import SubscriptionManager
 from analyzers.anomalies import AnomalyDetector
 from analyzers.locations import LocationAnalyzer
 from analyzers.debt import DebtAnalyzer
+
+# --- managers for manual & proactive data ---
+from analyzers.subscription_manager import SubscriptionManager
 from analyzers.recurring_purchases_manager import RecurringPurchasesManager
 from analyzers.inventory_manager import InventoryManager
 from analyzers.credit_card_tracker import CreditCardTracker
-from analyzers.plaid_syncer import PlaidSyncer
+from analyzers.wants_manager import WantsManager
+from analyzers.sinking_fund_manager import SinkingFundManager
+
+# --- forward-looking & strategic modules ---
+from analyzers.cash_flow_analyzer import CashFlowAnalyzer
 from budget.budgeter import Budgeter
 from budget.debt_strategy import DebtStrategy
+
+# --- output ---
 from reports.reporter import Reporter
-from models.debt import DebtAccount
+
 
 def main():
-    """main analysis pipeline"""
+    """
+    runs the full financial analysis pipeline from data sync to report generation.
+    """
     print("\n🏠 budget analyzer\n")
 
-    # sync from plaid (optional)
-    print("🔄 checking plaid sync...")
+    # step 1: sync latest transactions from ynab
+    print("🔄 syncing from ynab...")
     try:
-        syncer = PlaidSyncer()
-        syncer.sync_all_to_csv("data/transactions.csv", days=90)
+        ynab_syncer = YNABSyncer()
+        ynab_syncer.sync_to_csv(days=90)  # sync last 90 days of transactions
     except Exception as e:
-        print(f"⚠️  plaid sync skipped: {e}")
-        print("   continuing with existing data...\n")
+        print(f"⚠️  ynab sync failed: {e}")
+        print("   continuing with existing local data...\n")
 
-    # load transactions
+    # step 2: load transactions from the csv file into memory
     parser = CSVParser("data/transactions.csv")
     transactions = parser.load()
 
     if not transactions:
-        print("❌ no transactions found. check your csv file.")
+        print("❌ no transactions found. check your csv file or ynab sync setup.")
         return
 
-    # analyze spending
+    # step 3: initialize all analyzers and managers
+    # note: these are user-configurable values. update them to match your financial situation.
+    MONTHLY_INCOME = 4600.0  # estimate your total monthly take-home pay
+    CHECKING_ACCOUNT_BALANCE = 2500.0  # your current checking balance
+
     print("\n📊 analyzing spending...")
     spending_analyzer = SpendingAnalyzer(transactions)
-    print(f"   total spent: ${spending_analyzer.total_spent():,.2f}")
+    print(f"   total spent (last 90d): ${spending_analyzer.total_spent():,.2f}")
     print(f"   avg monthly: ${spending_analyzer.average_monthly():,.2f}")
 
-    # load subscription manager
     print("\n📋 loading subscription manager...")
     subscription_manager = SubscriptionManager("data/subscriptions.json")
-
-    # detect subscriptions
-    print("\n🔄 detecting subscriptions (pattern-based)...")
     subscription_detector = SubscriptionDetector(transactions)
     detected_recurring = subscription_detector.find_recurring()
-    print(f"   found {len(detected_recurring)} detected recurring charges")
+    print(f"   found {len(detected_recurring)} auto-detected recurring charges.")
 
-    health = subscription_detector.subscription_health_check()
-    print(f"   monthly recurring: ${subscription_manager.total_monthly_cost(detected_recurring):,.2f}")
-
-    if health['possibly_cancelled'] > 0:
-        print(f"   ⚠️  {health['possibly_cancelled']} possibly cancelled")
-
-    if health['potential_duplicates'] > 0:
-        print(f"   ⚠️  {health['potential_duplicates']} potential duplicates")
-
-    # detect anomalies
     print("\n🚨 detecting anomalies...")
     anomaly_detector = AnomalyDetector(transactions)
-    large = anomaly_detector.large_purchases()
-    outliers = anomaly_detector.statistical_outliers()
-    dupes = anomaly_detector.duplicate_transactions()
-    print(f"   found {len(large)} large purchases")
-    print(f"   found {len(outliers)} statistical outliers")
-    print(f"   found {len(dupes)} potential duplicates")
 
-    # analyze locations
     print("\n📍 analyzing locations...")
     location_analyzer = LocationAnalyzer(transactions)
-    freq_locs = location_analyzer.frequent_locations()
-    freq_merchants = location_analyzer.merchant_frequency()
-    commute = location_analyzer.commute_analysis()
-    print(f"   found {len(freq_locs)} frequent locations")
-    print(f"   commute spending: ${commute['monthly_avg']:,.2f}/month")
 
-    # load recurring purchases manager
     print("\n🔄 loading recurring purchases manager...")
     recurring_purchases_manager = RecurringPurchasesManager("data/recurring_purchases.json")
-    due_soon = recurring_purchases_manager.get_due_soon()
-    overdue = recurring_purchases_manager.get_overdue()
-    if due_soon:
-        print(f"   ⏰ {len(due_soon)} purchases due soon")
-    if overdue:
-        print(f"   ⚠️  {len(overdue)} purchases overdue")
 
-    # load inventory manager
     print("\n📦 loading inventory manager...")
     inventory_manager = InventoryManager("data/inventory.json")
-    expired = inventory_manager.get_expired()
-    expiring_soon = inventory_manager.get_expiring_soon()
-    if expired:
-        print(f"   ⚠️  {len(expired)} expired items")
-    if expiring_soon:
-        print(f"   ⏰ {len(expiring_soon)} expiring soon")
 
-    # load credit card tracker
     print("\n💳 loading credit card tracker...")
     cc_tracker = CreditCardTracker("data/credit_card_charges.json")
-
-    # detect credit card transactions and track them
-    credit_card_txns = [
-        t for t in transactions
-        if t.account_type == "Credit Card"
-    ]
-
-    new_charges = 0
+    credit_card_txns = [t for t in transactions if t.account_type.lower() == "credit card"]
+    new_charges_tracked = 0
     for txn in credit_card_txns:
-        existing = [
-            c for c in cc_tracker.charges
-            if (c.merchant == txn.merchant and
-                c.amount == txn.amount and
-                c.date.date() == txn.date.date())
-        ]
-        if not existing:
-            cc_tracker.add_charge_from_transaction(txn, "Chase Credit Card")
-            new_charges += 1
+        if not any(c.date == txn.date and c.merchant == txn.merchant and c.amount == txn.amount for c in cc_tracker.charges):
+            cc_tracker.add_charge_from_transaction(txn, txn.account_name)
+            new_charges_tracked += 1
+    if new_charges_tracked > 0:
+        print(f"   tracked {new_charges_tracked} new credit card charges.")
 
-    if new_charges > 0:
-        print(f"   ✅ tracked {new_charges} new charges")
+    print("\n🛍️  loading wants manager...")
+    wants_manager = WantsManager("data/wants.json")
+    wants_manager.perform_check_ins() # auto-perform monthly check-ins
 
-    unpaid = cc_tracker.detect_unpaid_charges()
-    if unpaid:
-        print(f"   ⚠️  {len(unpaid)} charges need payment")
+    print("\n💰 loading sinking funds...")
+    sinking_fund_manager = SinkingFundManager("data/sinking_funds.json")
 
-    # define debt accounts manually
+    # define your debt accounts here. update balances manually or automate with plaid balance sync in future.
     debt_accounts = [
-        DebtAccount(
-            name="Chase Credit Card",
-            account_type="credit_card",
-            current_balance=0,  # update with actual balance
-            credit_limit=5000,
-            interest_rate=0.21,
-            minimum_payment=25,
-        ),
-        DebtAccount(
-            name="Student Loan (Dept Education)",
-            account_type="student_loan",
-            current_balance=0,  # update with actual balance
-            interest_rate=0.05,
-            minimum_payment=50,
-        ),
-        DebtAccount(
-            name="Toyota Auto Loan",
-            account_type="auto_loan",
-            current_balance=0,  # update with actual balance
-            interest_rate=0.045,
-            minimum_payment=483.09,
-        ),
+        DebtAccount(name="Chase Credit Card", account_type="credit_card", current_balance=1250.55, credit_limit=5000, interest_rate=0.21, minimum_payment=40),
+        DebtAccount(name="Student Loan", account_type="student_loan", current_balance=22000.00, interest_rate=0.05, minimum_payment=250),
+        DebtAccount(name="Auto Loan", account_type="auto_loan", current_balance=8500.00, interest_rate=0.045, minimum_payment=483.09),
     ]
-
-    # analyze debt
-    print("\n💳 analyzing debt...")
     debt_analyzer = DebtAnalyzer(debt_accounts)
-    print(f"   total debt: ${debt_analyzer.total_debt():,.2f}")
-    print(f"   monthly interest: ${debt_analyzer.total_monthly_interest():,.2f}")
-
-    # debt strategy
-    print("\n📊 calculating payoff strategies...")
     debt_strategy = DebtStrategy(debt_analyzer, spending_analyzer)
-    budget_rec = debt_strategy.recommended_payoff_budget()
-    print(f"   available for debt: ${budget_rec['available_for_debt']:,.2f}")
 
-    # build budget
-    print("\n💰 building budget...")
+    # step 4: initialize the forward-looking strategic analyzers
+    print("\n🧠 initializing financial command center...")
+    cash_flow_analyzer = CashFlowAnalyzer(spending_analyzer, subscription_manager, recurring_purchases_manager, debt_analyzer, sinking_fund_manager, monthly_income=MONTHLY_INCOME, checking_balance=CHECKING_ACCOUNT_BALANCE)
     budgeter = Budgeter(spending_analyzer)
-    projection = budgeter.house_fund_projection(500)
-    print(f"   months to down payment: {projection['months_to_goal']:.0f}")
 
-    # generate report
+    # step 5: generate the comprehensive report
     print("\n📝 generating report...")
     reporter = Reporter(
-        spending_analyzer,
-        subscription_detector,
-        budgeter,
-        anomaly_detector,
-        location_analyzer,
-        debt_analyzer,
-        debt_strategy,
+        spending=spending_analyzer,
+        subscriptions=subscription_detector,
+        budgeter=budgeter,
+        anomalies=anomaly_detector,
+        locations=location_analyzer,
+        debt_analyzer=debt_analyzer,
+        debt_strategy=debt_strategy
     )
+    # attach the managers and strategic analyzers to the reporter
     reporter.subscription_manager = subscription_manager
     reporter.recurring_purchases_manager = recurring_purchases_manager
     reporter.inventory_manager = inventory_manager
     reporter.cc_tracker = cc_tracker
+    reporter.wants_manager = wants_manager
+    reporter.sinking_fund_manager = sinking_fund_manager
+    reporter.cash_flow_analyzer = cash_flow_analyzer
 
     report_text = reporter.summary_text()
     print(report_text)
 
-    # save report
+    # step 6: save the report to a file
     reporter.save_report("data/output/report.txt")
 
     print("\n✅ analysis complete!\n")

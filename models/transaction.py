@@ -16,6 +16,7 @@ class Transaction:
     description: str
     category: str
     notes: str = ""
+    source: str = "csv"  # "ynab" or "csv" - tracks where transaction came from
 
     @property
     def is_income(self) -> bool:
